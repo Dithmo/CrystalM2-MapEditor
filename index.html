@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Map Editor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #eee;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Layout Structure */
+        #left-sidebar {
+            width: 250px;
+            background: #2b2b2b;
+            border-right: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        #main-area {
+            flex-grow: 1;
+            position: relative;
+            background: #000;
+        }
+
+        #right-sidebar {
+            width: 320px;
+            background: #2b2b2b;
+            border-left: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        /* Panel Styling */
+        .panel {
+            padding: 15px;
+            border-bottom: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .panel-scrollable {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #4CAF50;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Inputs & Controls */
+        label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #ccc; }
+        input[type="file"] { font-size: 12px; max-width: 100%; color: #aaa; }
+        input[type="number"] { width: 60px; background: #222; color: white; border: 1px solid #555; padding: 4px; border-radius: 3px; }
+        select { background: #222; color: white; border: 1px solid #555; padding: 6px; border-radius: 3px; width: 100%; outline: none; }
+
+        button {
+            background: #3c3c3c;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: #505050; }
+        button:active { background: #2a2a2a; }
+
+        #btnSaveMap { background: #2e7d32; border-color: #1b5e20; }
+        #btnSaveMap:hover { background: #388e3c; }
+
+        .flex-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+        #status { font-size: 12px; color: #ffeb3b; word-wrap: break-word; font-family: monospace; }
+
+        /* Minimap */
+        #minimap-container {
+            padding: 10px;
+            background: #222;
+            border-top: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 220px;
+        }
+        #minimap-canvas {
+            border: 1px solid #555;
+            background: #000;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Pixi Canvas */
+        #pixi-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Palette */
+        .palette-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 10px;
+        }
+        .palette-item {
+            width: 48px;
+            height: 32px;
+            background: #222;
+            border: 1px solid #444;
+            cursor: pointer;
+            position: relative;
+            border-radius: 2px;
+            overflow: hidden;
+            transition: border-color 0.1s;
+        }
+        .palette-item:hover { border-color: #888; }
+        .palette-item.selected {
+            border-color: #ffeb3b;
+            box-shadow: 0 0 0 2px rgba(255, 235, 59, 0.5);
+        }
+        .palette-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* Cell Properties */
+        #cellPropInfo {
+            font-size: 12px;
+            color: #888;
+            padding: 4px;
+            background: #222;
+            border-radius: 3px;
+            text-align: center;
+        }
+    </style>
+    <!-- Include pako for gzip decompression -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <!-- Include PixiJS (v7) for WebGL rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+</head>
+<body>
+
+    <!-- Left Sidebar -->
+    <div id="left-sidebar">
+        <div class="panel">
+            <h3>Files</h3>
+            <label>Load Map (.map) <input type="file" id="fileMap" accept=".map" /></label>
+            <label>Load Libs (.lib) <input type="file" id="fileLibs" accept=".lib" multiple /></label>
+            <button id="btnSaveMap" style="margin-top: 5px;">Export Map</button>
+        </div>
+
+        <div class="panel">
+            <h3>Layers</h3>
+            <label><input type="checkbox" id="chkBack" checked> Background</label>
+            <label><input type="checkbox" id="chkMidd" checked> Middle</label>
+            <label><input type="checkbox" id="chkFront" checked> Foreground</label>
+            <label><input type="checkbox" id="chkGrid"> Grid</label>
+        </div>
+
+        <div class="panel panel-scrollable">
+            <h3>Cell Properties</h3>
+            <div id="cellPropInfo">Right click a cell...</div>
+            <div class="flex-row"><label>Door Index</label><input type="number" id="propDoorIndex" min="0" max="255"></div>
+            <div class="flex-row"><label>Door Offset</label><input type="number" id="propDoorOffset" min="0" max="255"></div>
+            <div class="flex-row"><label>Light</label><input type="number" id="propLight" min="0" max="255"></div>
+            <div class="flex-row"><label>Front Anim Frame</label><input type="number" id="propFrontAnimFrame" min="0" max="255"></div>
+            <div class="flex-row"><label>Front Anim Tick</label><input type="number" id="propFrontAnimTick" min="0" max="255"></div>
+            <button id="btnApplyProps" style="margin-top: 5px;">Apply to Selection</button>
+        </div>
+
+        <div class="panel" style="border-bottom: none;">
+            <div id="status">Ready</div>
+        </div>
+    </div>
+
+    <!-- Main Rendering Area -->
+    <div id="main-area">
+        <div id="pixi-container"></div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div id="right-sidebar">
+        <div class="panel">
+            <h3>Paint Options</h3>
+            <div class="flex-row">
+                <label style="flex-grow:1;">Target Layer:</label>
+                <select id="selActiveLayer" style="width: auto;">
+                    <option value="back">Background</option>
+                    <option value="middle">Middle</option>
+                    <option value="front">Foreground</option>
+                </select>
+            </div>
+            <div class="flex-row">
+                <label>Brush Size:</label>
+                <input type="number" id="inpBrushSize" min="1" max="10" value="1">
+            </div>
+            <label><input type="checkbox" id="chkAutoTile"> Enable Auto-Tiling</label>
+            <label><input type="checkbox" id="chkMir3AutoTile"> Use Mir3 Format (30-tile block)</label>
+        </div>
+
+        <div class="panel">
+            <h3>Tools</h3>
+            <div class="flex-row">
+                <label><input type="radio" name="toolMode" value="paint" checked> Paint</label>
+                <label><input type="radio" name="toolMode" value="select"> Select (Copy/Paste)</label>
+            </div>
+            <div id="selectionInfo" style="font-size: 11px; color: #888; margin-top: 5px;"></div>
+        </div>
+
+        <div class="panel panel-scrollable">
+            <h3>Library Palette</h3>
+            <select id="selLib" style="margin-bottom: 5px;">
+                <option value="-1">-- Select Library --</option>
+            </select>
+            <button id="btnLoadPalette">Load Palette Images</button>
+            <div id="palette" class="palette-container"></div>
+        </div>
+
+        <div id="minimap-container">
+            <h3 style="align-self: flex-start; margin-left: 10px;">Radar</h3>
+            <canvas id="minimap-canvas" width="200" height="200"></canvas>
+        </div>
+    </div>
+
+    <script src="src/AutoTiler.js"></script>
+    <script src="src/MLibrary.js"></script>
+    <script src="src/MapReader.js"></script>
+    <script src="src/Renderer.js"></script>
+    <script src="src/main.js"></script>
+</body>
+</html>
