@@ -168,56 +168,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let autoTilingEnabled = false;
     document.getElementById("chkAutoTile").addEventListener("change", e => autoTilingEnabled = e.target.checked);
 
-    // Basic Auto-Tiling logic (Mir2 format approximation)
-    // The original C# code uses a bitmask to calculate the correct tile based on its neighbors.
-    // The mask is calculated as: Top=1, Right=2, Bottom=4, Left=8
-    // The index offset for the tile is then looked up in an array.
-    // We will use a simplified approximation of the standard Mir2 terrain auto-tiling logic.
-    const autoTileOffsets = [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-    ];
-    // This is a simplification. Real Mir auto-tiling dictionaries are complex and specific to the tile type
-    // (e.g., dirt, grass, water, sand). A full implementation would require porting the exact
-    // dictionaries (e.g., _wemadeMir2IndexList, _shandaMir2IndexList) from the C# code.
-
-    function isSameTileType(x, y, layer, baseImgIndex, libIndex) {
-        if (!renderer.map) return false;
-        const cell = renderer.map.getCell(x, y);
-        if (!cell) return true; // Treat edges of map as same type
-
-        if (layer === "back") {
-            // Check if it's the same library (e.g., "Tiles" vs "SmTiles")
-            // and within a generic range of the base image.
-            // Mir tiles are often grouped in blocks of 50 or 60.
-            return cell.backIndex === libIndex && Math.abs(cell.backImage - baseImgIndex) < 50;
-        }
-        return false; // Auto-tiling usually only applies to the background layer in this context
-    }
-
-    // This function evaluates a cell's neighbors and returns the correct index offset
-    function calculateAutoTileOffset(x, y, layer, baseImgIndex, libIndex) {
-        if (layer !== "back") return baseImgIndex; // Only auto-tile background layer for now
-
-        let bitmask = 0;
-        if (isSameTileType(x, y - 1, layer, baseImgIndex, libIndex)) bitmask |= 1; // North
-        if (isSameTileType(x + 1, y, layer, baseImgIndex, libIndex)) bitmask |= 2; // East
-        if (isSameTileType(x, y + 1, layer, baseImgIndex, libIndex)) bitmask |= 4; // South
-        if (isSameTileType(x - 1, y, layer, baseImgIndex, libIndex)) bitmask |= 8; // West
-
-        // Apply the offset based on the bitmask
-        // In reality, you'd find the start of the auto-tiling block (e.g., Math.floor(baseImgIndex / 50) * 50)
-        // and add the offset. For this approximation, we just add the offset to the base index.
-        // We ensure we stay within a reasonable bound to avoid grabbing random unrelated tiles.
-
-        // Note: The actual Mir tile block logic (e.g., Mir2BigTileBlock = 50) is complex.
-        // This is a simplified structural representation.
-        const blockStart = Math.floor(baseImgIndex / 50) * 50;
-
-        // Fallback: If no neighbors match, it's an isolated tile (often offset 0 or a specific corner)
-        if (bitmask === 0) return baseImgIndex;
-
-        return blockStart + autoTileOffsets[bitmask];
-    }
+    // Initialize real AutoTiler logic imported from AutoTiler.js
+    const autoTiler = new AutoTiler(renderer);
 
     // Undo/Redo System
     const undoStack = [];
@@ -411,31 +363,36 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (targetCell) {
                             const oldData = Object.assign({}, targetCell);
 
-                            // Determine the final image index to use (Auto-tiling check)
-                            let finalImageIndex = selectedImageIndex + 1; // +1 based on C# offsets
+                            // Execute real auto-tiling if enabled on background
+                            if (autoTilingEnabled && activePaintLayer === "back") {
+                                autoTiler.applyAutoTile(targetX, targetY, selectedLibIndex, selectedImageIndex);
 
-                            if (autoTilingEnabled) {
-                                finalImageIndex = calculateAutoTileOffset(targetX, targetY, activePaintLayer, finalImageIndex, selectedLibIndex);
+                                // Since autoTiler modifies surrounding cells, we need to refresh minimap for the range
+                                const r = 4;
+                                for (let j = targetY - r; j <= targetY + r; j++) {
+                                    for (let i = targetX - r; i <= targetX + r; i++) {
+                                        updateMinimapPixel(i, j, renderer.map.getCell(i, j));
+                                    }
+                                }
+
+                                // To properly undo a full auto-tile stroke, a robust system would batch all changed cells.
+                                // For now, we record the central click.
+                                recordEdit(targetX, targetY, oldData, renderer.map.getCell(targetX, targetY));
+                            } else {
+                                // Standard painting
+                                if (activePaintLayer === "back") {
+                                    targetCell.backIndex = selectedLibIndex;
+                                    targetCell.backImage = selectedImageIndex + 1;
+                                } else if (activePaintLayer === "middle") {
+                                    targetCell.middleIndex = selectedLibIndex;
+                                    targetCell.middleImage = selectedImageIndex + 1;
+                                } else if (activePaintLayer === "front") {
+                                    targetCell.frontIndex = selectedLibIndex;
+                                    targetCell.frontImage = selectedImageIndex + 1;
+                                }
+                                recordEdit(targetX, targetY, oldData, targetCell);
+                                updateMinimapPixel(targetX, targetY, targetCell);
                             }
-
-                            if (activePaintLayer === "back") {
-                                targetCell.backIndex = selectedLibIndex;
-                                targetCell.backImage = finalImageIndex;
-                            } else if (activePaintLayer === "middle") {
-                                targetCell.middleIndex = selectedLibIndex;
-                                targetCell.middleImage = finalImageIndex;
-                            } else if (activePaintLayer === "front") {
-                                targetCell.frontIndex = selectedLibIndex;
-                                targetCell.frontImage = finalImageIndex;
-                            }
-
-                            // Note: We should ideally batch undo records for brush strokes,
-                            // but for simplicity we record each cell edit separately here.
-                            recordEdit(targetX, targetY, oldData, targetCell);
-                            updateMinimapPixel(targetX, targetY, targetCell);
-
-                            // Note: Real auto-tiling usually updates the *neighbors* as well to match the new terrain.
-                            // e.g. targetCell neighbors might need recalculating if they are the same tile type.
                         }
                     }
                 }
