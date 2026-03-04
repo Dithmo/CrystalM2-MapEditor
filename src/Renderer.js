@@ -35,7 +35,29 @@ class Renderer {
         };
 
         this.setupInteraction();
-        this.app.ticker.add(() => this.renderLoop());
+        // Global animation tick counter
+        this.animTick = 0;
+
+        // Use ticker with delta for consistent animations
+        this.app.ticker.add((delta) => {
+            // Increase tick. In the real C# game, different layers run at different speeds.
+            // We'll use a generic ~10 ticks per second pace.
+            this.animTick += delta * 0.15;
+            this.renderLoop();
+        });
+
+        // Setup Grid / Overlay graphics layer
+        this.overlayGraphics = new PIXI.Graphics();
+        this.stage.addChild(this.overlayGraphics);
+
+        // Setup Hover Preview Sprite
+        this.hoverPreviewSprite = new PIXI.Sprite();
+        this.hoverPreviewSprite.alpha = 0.5;
+        this.hoverPreviewSprite.visible = false;
+        this.stage.addChild(this.hoverPreviewSprite);
+
+        this.hoverWorldX = 0;
+        this.hoverWorldY = 0;
     }
 
     getSprite() {
@@ -92,6 +114,10 @@ class Renderer {
                 const dy = (e.clientY - this.dragStart.y) / this.camera.zoom;
                 this.camera.x = this.cameraStart.x - dx;
                 this.camera.y = this.cameraStart.y - dy;
+            } else {
+                // Update hover preview coordinates
+                this.hoverWorldX = (e.clientX / this.camera.zoom) + this.camera.x;
+                this.hoverWorldY = (e.clientY / this.camera.zoom) + this.camera.y;
             }
         });
 
@@ -173,6 +199,13 @@ class Renderer {
         this.stage.scale.set(this.camera.zoom);
         this.stage.position.set(-this.camera.x * this.camera.zoom, -this.camera.y * this.camera.zoom);
 
+        // Ensure overlay stays on top
+        this.stage.addChild(this.overlayGraphics);
+        this.overlayGraphics.clear();
+
+        // Ensure hover preview stays on top
+        this.stage.addChild(this.hoverPreviewSprite);
+
         // Frustum culling: calculate visible grid cells
         const viewX = this.camera.x;
         const viewY = this.camera.y;
@@ -192,7 +225,22 @@ class Renderer {
                     if (!cell) continue;
 
                     if (cell.backImage && (cell.backImage & 0x7FFF) > 0) {
-                        const imgIndex = (cell.backImage & 0x7FFF) - 1;
+                        let imgIndex = (cell.backImage & 0x7FFF) - 1;
+
+                        // Handle Background Tile Animations (Water/Lava etc)
+                        if (cell.tileAnimationFrames && cell.tileAnimationFrames > 0 && (cell.tileAnimationImage & 0x7FFF) > 0) {
+                            // Cycle through frames based on global tick
+                            const currentFrameOffset = Math.floor(this.animTick) % cell.tileAnimationFrames;
+
+                            // Try loading animated texture
+                            const animImageIndex = (cell.tileAnimationImage & 0x7FFF) - 1 + currentFrameOffset;
+                            const animMImage = this.getTexture(cell.backIndex || 0, animImageIndex);
+
+                            if (animMImage && animMImage.texture) {
+                                imgIndex = animImageIndex;
+                            }
+                        }
+
                         const mImage = this.getTexture(cell.backIndex || 0, imgIndex);
 
                         if (mImage && mImage.texture) {
@@ -226,7 +274,15 @@ class Renderer {
 
                 // Middle
                 if (this.layerConfig.middle && cell.middleImage && cell.middleImage > 0) {
-                    const imgIndex = cell.middleImage - 1;
+                    let imgIndex = cell.middleImage - 1;
+
+                    // Handle Middle Animation
+                    if (cell.middleAnimationFrame && cell.middleAnimationFrame > 0) {
+                        const tickSpeed = cell.middleAnimationTick || 1;
+                        const currentFrameOffset = Math.floor(this.animTick / tickSpeed) % cell.middleAnimationFrame;
+                        imgIndex = imgIndex + currentFrameOffset;
+                    }
+
                     const mImage = this.getTexture(cell.middleIndex || 1, imgIndex);
 
                     if (mImage && mImage.texture) {
@@ -242,8 +298,16 @@ class Renderer {
 
                 // Front (Objects)
                 if (this.layerConfig.front && cell.frontImage && cell.frontImage > 0) {
-                    const imgIndex = cell.frontImage - 1;
+                    let imgIndex = cell.frontImage - 1;
                     const libIndex = cell.frontIndex > 0 ? cell.frontIndex : 2;
+
+                    // Handle Front Animation (Torches, Fountains, etc)
+                    if (cell.frontAnimationFrame && cell.frontAnimationFrame > 0) {
+                        const tickSpeed = cell.frontAnimationTick || 1;
+                        // For front animations, the base image is cell.frontImage, and it cycles through frontAnimationFrame frames
+                        const currentFrameOffset = Math.floor(this.animTick / tickSpeed) % cell.frontAnimationFrame;
+                        imgIndex = imgIndex + currentFrameOffset;
+                    }
 
                     const mImage = this.getTexture(libIndex, imgIndex);
 
@@ -257,7 +321,55 @@ class Renderer {
                         this.activeSprites.push(sprite);
                     }
                 }
+
+                // Overlay markers (Doors, Lights) and Grid
+                if (this.layerConfig.grid) {
+                    this.overlayGraphics.lineStyle(1, 0xFFFFFF, 0.2);
+                    this.overlayGraphics.drawRect(drawX, drawY, this.CELL_WIDTH, this.CELL_HEIGHT);
+
+                    if (cell.doorIndex > 0 || (cell.doorOffset > 0 && cell.doorOffset !== 0)) {
+                        this.overlayGraphics.beginFill(0x00FF00, 0.5); // Green semi-transparent
+                        this.overlayGraphics.drawRect(drawX, drawY, this.CELL_WIDTH/2, this.CELL_HEIGHT/2);
+                        this.overlayGraphics.endFill();
+                    }
+
+                    if (cell.light > 0) {
+                        this.overlayGraphics.beginFill(0xFFFF00, 0.5); // Yellow semi-transparent
+                        this.overlayGraphics.drawRect(drawX + this.CELL_WIDTH/2, drawY + this.CELL_HEIGHT/2, this.CELL_WIDTH/2, this.CELL_HEIGHT/2);
+                        this.overlayGraphics.endFill();
+                    }
+                }
             }
+        }
+
+        // Handle Hover Preview
+        if (this.hoverLibIndex !== undefined && this.hoverImageIndex !== undefined
+            && this.hoverLibIndex !== -1 && this.hoverImageIndex !== -1) {
+
+            const cellX = Math.floor(this.hoverWorldX / this.CELL_WIDTH);
+            const cellY = Math.floor(this.hoverWorldY / this.CELL_HEIGHT);
+
+            const mImage = this.getTexture(this.hoverLibIndex, this.hoverImageIndex);
+
+            if (mImage && mImage.texture) {
+                this.hoverPreviewSprite.texture = mImage.texture;
+                this.hoverPreviewSprite.visible = true;
+
+                const drawX = cellX * this.CELL_WIDTH;
+                const drawY = cellY * this.CELL_HEIGHT;
+
+                if (this.hoverLayer === "back") {
+                    this.hoverPreviewSprite.x = drawX;
+                    this.hoverPreviewSprite.y = drawY;
+                } else {
+                    this.hoverPreviewSprite.x = drawX + mImage.x;
+                    this.hoverPreviewSprite.y = drawY + mImage.y;
+                }
+            } else {
+                this.hoverPreviewSprite.visible = false;
+            }
+        } else {
+            this.hoverPreviewSprite.visible = false;
         }
     }
 }

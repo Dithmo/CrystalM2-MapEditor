@@ -76,6 +76,26 @@
             overflow-y: auto;
         }
 
+        #minimap-container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 5px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #minimap-canvas {
+            border: 1px solid #555;
+            background: #000;
+            cursor: pointer;
+        }
+
         .palette-container {
             display: flex;
             flex-wrap: wrap;
@@ -158,6 +178,12 @@
         <div class="flex-row"><label>Front Anim Frame</label><input type="number" id="propFrontAnimFrame" min="0" max="255"></div>
         <div class="flex-row"><label>Front Anim Tick</label><input type="number" id="propFrontAnimTick" min="0" max="255"></div>
         <button id="btnApplyProps">Apply to Selection</button>
+    </div>
+
+    <!-- Minimap Panel -->
+    <div id="minimap-container">
+        <h3>Radar</h3>
+        <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>
 
     <div id="pixi-container"></div>
