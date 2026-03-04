@@ -1,7 +1,7 @@
 class Renderer {
     constructor(containerId) {
         this.app = new PIXI.Application({
-            resizeTo: window,
+            resizeTo: document.getElementById(containerId),
             backgroundColor: 0x111111,
             autoDensity: true,
             resolution: window.devicePixelRatio || 1,
@@ -56,8 +56,14 @@ class Renderer {
         this.hoverPreviewSprite.visible = false;
         this.stage.addChild(this.hoverPreviewSprite);
 
+        // Setup Hover Brush Grid
+        this.hoverBrushGrid = new PIXI.Graphics();
+        this.hoverBrushGrid.visible = false;
+        this.stage.addChild(this.hoverBrushGrid);
+
         this.hoverWorldX = 0;
         this.hoverWorldY = 0;
+        this.brushSize = 1;
     }
 
     getSprite() {
@@ -205,6 +211,7 @@ class Renderer {
 
         // Ensure hover preview stays on top
         this.stage.addChild(this.hoverPreviewSprite);
+        this.stage.addChild(this.hoverBrushGrid);
 
         // Frustum culling: calculate visible grid cells
         const viewX = this.camera.x;
@@ -368,8 +375,25 @@ class Renderer {
             } else {
                 this.hoverPreviewSprite.visible = false;
             }
+
+            // Draw brush grid outline
+            if (this.brushSize > 1) {
+                this.hoverBrushGrid.visible = true;
+                this.hoverBrushGrid.clear();
+                this.hoverBrushGrid.lineStyle(2, 0xFFFF00, 0.8);
+                this.hoverBrushGrid.drawRect(
+                    cellX * this.CELL_WIDTH,
+                    cellY * this.CELL_HEIGHT,
+                    this.CELL_WIDTH * this.brushSize,
+                    this.CELL_HEIGHT * this.brushSize
+                );
+            } else {
+                this.hoverBrushGrid.visible = false;
+            }
+
         } else {
             this.hoverPreviewSprite.visible = false;
+            this.hoverBrushGrid.visible = false;
         }
     }
 }

@@ -9,122 +9,152 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            font-family: sans-serif;
-            background-color: #222;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
             color: #eee;
-        }
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 10;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        #pixi-container {
-            width: 100vw;
             height: 100vh;
-            display: block;
         }
-        .control-group {
+
+        /* Layout Structure */
+        #left-sidebar {
+            width: 250px;
+            background: #2b2b2b;
+            border-right: 1px solid #444;
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+            z-index: 10;
         }
-        h3 { margin: 0 0 5px 0; font-size: 14px; color: #aaa; }
-        label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; }
-        input[type="file"] { font-size: 12px; }
-        button { background: #444; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
-        button:hover { background: #555; }
-        #status { font-size: 12px; color: #ffeb3b; margin-top: 5px; word-wrap: break-word; max-width: 250px; }
 
-        /* Tool panels */
-        #tools, #properties {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+        #main-area {
+            flex-grow: 1;
+            position: relative;
+            background: #000;
+        }
+
+        #right-sidebar {
+            width: 320px;
+            background: #2b2b2b;
+            border-left: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        /* Panel Styling */
+        .panel {
+            padding: 15px;
+            border-bottom: 1px solid #3a3a3a;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            z-index: 10;
         }
 
-        #tools {
-            top: 10px;
-            right: 10px;
-            width: 300px;
-            max-height: 50vh;
+        .panel-scrollable {
+            flex-grow: 1;
             overflow-y: auto;
         }
 
-        #properties {
-            bottom: 10px;
-            right: 10px;
-            width: 300px;
-            max-height: 40vh;
-            overflow-y: auto;
+        h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #4CAF50;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
+        /* Inputs & Controls */
+        label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #ccc; }
+        input[type="file"] { font-size: 12px; max-width: 100%; color: #aaa; }
+        input[type="number"] { width: 60px; background: #222; color: white; border: 1px solid #555; padding: 4px; border-radius: 3px; }
+        select { background: #222; color: white; border: 1px solid #555; padding: 6px; border-radius: 3px; width: 100%; outline: none; }
+
+        button {
+            background: #3c3c3c;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: #505050; }
+        button:active { background: #2a2a2a; }
+
+        #btnSaveMap { background: #2e7d32; border-color: #1b5e20; }
+        #btnSaveMap:hover { background: #388e3c; }
+
+        .flex-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+        #status { font-size: 12px; color: #ffeb3b; word-wrap: break-word; font-family: monospace; }
+
+        /* Minimap */
         #minimap-container {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            z-index: 10;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 5px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            padding: 10px;
+            background: #222;
+            border-top: 1px solid #444;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            height: 220px;
         }
-
         #minimap-canvas {
             border: 1px solid #555;
             background: #000;
             cursor: pointer;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
 
+        /* Pixi Canvas */
+        #pixi-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Palette */
         .palette-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
+            gap: 4px;
             margin-top: 10px;
         }
         .palette-item {
             width: 48px;
             height: 32px;
-            background: #333;
-            border: 1px solid #555;
+            background: #222;
+            border: 1px solid #444;
             cursor: pointer;
             position: relative;
+            border-radius: 2px;
+            overflow: hidden;
+            transition: border-color 0.1s;
         }
+        .palette-item:hover { border-color: #888; }
         .palette-item.selected {
             border-color: #ffeb3b;
-            box-shadow: 0 0 5px #ffeb3b;
+            box-shadow: 0 0 0 2px rgba(255, 235, 59, 0.5);
         }
         .palette-item img {
-            max-width: 100%;
-            max-height: 100%;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
             display: block;
-            margin: auto;
         }
 
-        select { background: #333; color: white; border: 1px solid #555; padding: 5px; border-radius: 4px; }
-        .flex-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .flex-row input[type="number"] { width: 50px; background: #333; color: white; border: 1px solid #555; padding: 2px; }
+        /* Cell Properties */
+        #cellPropInfo {
+            font-size: 12px;
+            color: #888;
+            padding: 4px;
+            background: #222;
+            border-radius: 3px;
+            text-align: center;
+        }
     </style>
     <!-- Include pako for gzip decompression -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
@@ -132,61 +162,78 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
 </head>
 <body>
-    <div id="ui">
-        <div class="control-group">
+
+    <!-- Left Sidebar -->
+    <div id="left-sidebar">
+        <div class="panel">
             <h3>Files</h3>
             <label>Load Map (.map) <input type="file" id="fileMap" accept=".map" /></label>
             <label>Load Libs (.lib) <input type="file" id="fileLibs" accept=".lib" multiple /></label>
+            <button id="btnSaveMap" style="margin-top: 5px;">Export Map</button>
         </div>
-        <div class="control-group">
+
+        <div class="panel">
             <h3>Layers</h3>
             <label><input type="checkbox" id="chkBack" checked> Background</label>
             <label><input type="checkbox" id="chkMidd" checked> Middle</label>
             <label><input type="checkbox" id="chkFront" checked> Foreground</label>
             <label><input type="checkbox" id="chkGrid"> Grid</label>
         </div>
-        <div id="status">Ready</div>
-        <button id="btnSaveMap" style="margin-top: 10px;">Export Map</button>
+
+        <div class="panel panel-scrollable">
+            <h3>Cell Properties</h3>
+            <div id="cellPropInfo">Right click a cell...</div>
+            <div class="flex-row"><label>Door Index</label><input type="number" id="propDoorIndex" min="0" max="255"></div>
+            <div class="flex-row"><label>Door Offset</label><input type="number" id="propDoorOffset" min="0" max="255"></div>
+            <div class="flex-row"><label>Light</label><input type="number" id="propLight" min="0" max="255"></div>
+            <div class="flex-row"><label>Front Anim Frame</label><input type="number" id="propFrontAnimFrame" min="0" max="255"></div>
+            <div class="flex-row"><label>Front Anim Tick</label><input type="number" id="propFrontAnimTick" min="0" max="255"></div>
+            <button id="btnApplyProps" style="margin-top: 5px;">Apply to Selection</button>
+        </div>
+
+        <div class="panel" style="border-bottom: none;">
+            <div id="status">Ready</div>
+        </div>
     </div>
 
-    <!-- Tools Panel -->
-    <div id="tools">
-        <h3>Paint Palette</h3>
-        <label>Active Layer:
-            <select id="selActiveLayer">
-                <option value="back">Background</option>
-                <option value="middle">Middle</option>
-                <option value="front">Foreground</option>
+    <!-- Main Rendering Area -->
+    <div id="main-area">
+        <div id="pixi-container"></div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div id="right-sidebar">
+        <div class="panel">
+            <h3>Paint Options</h3>
+            <div class="flex-row">
+                <label style="flex-grow:1;">Target Layer:</label>
+                <select id="selActiveLayer" style="width: auto;">
+                    <option value="back">Background</option>
+                    <option value="middle">Middle</option>
+                    <option value="front">Foreground</option>
+                </select>
+            </div>
+            <div class="flex-row">
+                <label>Brush Size:</label>
+                <input type="number" id="inpBrushSize" min="1" max="10" value="1">
+            </div>
+            <label><input type="checkbox" id="chkAutoTile"> Enable Auto-Tiling</label>
+        </div>
+
+        <div class="panel panel-scrollable">
+            <h3>Library Palette</h3>
+            <select id="selLib" style="margin-bottom: 5px;">
+                <option value="-1">-- Select Library --</option>
             </select>
-        </label>
-        <label>Library:
-            <select id="selLib">
-                <option value="-1">-- None --</option>
-            </select>
-        </label>
-        <button id="btnLoadPalette">Load Palette Images</button>
-        <div id="palette" class="palette-container"></div>
-    </div>
+            <button id="btnLoadPalette">Load Palette Images</button>
+            <div id="palette" class="palette-container"></div>
+        </div>
 
-    <!-- Properties Panel -->
-    <div id="properties">
-        <h3>Cell Properties</h3>
-        <div id="cellPropInfo" style="font-size: 12px; margin-bottom: 5px;">Select a cell...</div>
-        <div class="flex-row"><label>Door Index</label><input type="number" id="propDoorIndex" min="0" max="255"></div>
-        <div class="flex-row"><label>Door Offset</label><input type="number" id="propDoorOffset" min="0" max="255"></div>
-        <div class="flex-row"><label>Light</label><input type="number" id="propLight" min="0" max="255"></div>
-        <div class="flex-row"><label>Front Anim Frame</label><input type="number" id="propFrontAnimFrame" min="0" max="255"></div>
-        <div class="flex-row"><label>Front Anim Tick</label><input type="number" id="propFrontAnimTick" min="0" max="255"></div>
-        <button id="btnApplyProps">Apply to Selection</button>
+        <div id="minimap-container">
+            <h3 style="align-self: flex-start; margin-left: 10px;">Radar</h3>
+            <canvas id="minimap-canvas" width="200" height="200"></canvas>
+        </div>
     </div>
-
-    <!-- Minimap Panel -->
-    <div id="minimap-container">
-        <h3>Radar</h3>
-        <canvas id="minimap-canvas" width="200" height="200"></canvas>
-    </div>
-
-    <div id="pixi-container"></div>
 
     <script src="src/MLibrary.js"></script>
     <script src="src/MapReader.js"></script>
