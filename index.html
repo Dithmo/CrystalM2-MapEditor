@@ -218,6 +218,16 @@
                 <input type="number" id="inpBrushSize" min="1" max="10" value="1">
             </div>
             <label><input type="checkbox" id="chkAutoTile"> Enable Auto-Tiling</label>
+            <label><input type="checkbox" id="chkMir3AutoTile"> Use Mir3 Format (30-tile block)</label>
+        </div>
+
+        <div class="panel">
+            <h3>Tools</h3>
+            <div class="flex-row">
+                <label><input type="radio" name="toolMode" value="paint" checked> Paint</label>
+                <label><input type="radio" name="toolMode" value="select"> Select (Copy/Paste)</label>
+            </div>
+            <div id="selectionInfo" style="font-size: 11px; color: #888; margin-top: 5px;"></div>
         </div>
 
         <div class="panel panel-scrollable">

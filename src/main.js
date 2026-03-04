@@ -164,9 +164,30 @@ document.addEventListener("DOMContentLoaded", () => {
     let activePaintLayer = "back";
     let selectedMapCell = null;
 
+    // Tool Mode State
+    let currentToolMode = "paint"; // "paint" or "select"
+    document.querySelectorAll("input[name='toolMode']").forEach(el => {
+        el.addEventListener("change", e => {
+            if (e.target.checked) {
+                currentToolMode = e.target.value;
+                if (currentToolMode === "paint") {
+                    renderer.selectionBounds = null;
+                }
+            }
+        });
+    });
+
+    // Copy/Paste State
+    let clipboard = null;
+    let selectStartX = -1;
+    let selectStartY = -1;
+    let isSelecting = false;
+
     // Auto-tiling state
     let autoTilingEnabled = false;
+    let isMir3AutoTile = false;
     document.getElementById("chkAutoTile").addEventListener("change", e => autoTilingEnabled = e.target.checked);
+    document.getElementById("chkMir3AutoTile").addEventListener("change", e => isMir3AutoTile = e.target.checked);
 
     // Initialize real AutoTiler logic imported from AutoTiler.js
     const autoTiler = new AutoTiler(renderer);
@@ -195,6 +216,50 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     window.addEventListener("keydown", (e) => {
+        // Copy
+        if (e.ctrlKey && e.key === 'c' && currentToolMode === "select" && renderer.selectionBounds) {
+            e.preventDefault();
+            clipboard = {
+                w: renderer.selectionBounds.w,
+                h: renderer.selectionBounds.h,
+                cells: []
+            };
+            for (let x = 0; x < clipboard.w; x++) {
+                for (let y = 0; y < clipboard.h; y++) {
+                    const sourceCell = renderer.map.getCell(renderer.selectionBounds.x + x, renderer.selectionBounds.y + y);
+                    clipboard.cells.push(sourceCell ? Object.assign({}, sourceCell) : null);
+                }
+            }
+            document.getElementById("selectionInfo").innerText = `Copied ${clipboard.w}x${clipboard.h} cells.`;
+        }
+
+        // Paste
+        if (e.ctrlKey && e.key === 'v' && clipboard) {
+            e.preventDefault();
+            // Paste at current mouse hover location
+            const hoverX = Math.floor(renderer.hoverWorldX / renderer.CELL_WIDTH);
+            const hoverY = Math.floor(renderer.hoverWorldY / renderer.CELL_HEIGHT);
+
+            for (let x = 0; x < clipboard.w; x++) {
+                for (let y = 0; y < clipboard.h; y++) {
+                    const targetX = hoverX + x;
+                    const targetY = hoverY + y;
+                    const sourceData = clipboard.cells[x * clipboard.h + y];
+
+                    if (sourceData) {
+                        const targetCell = renderer.map.getCell(targetX, targetY);
+                        if (targetCell) {
+                            const oldData = Object.assign({}, targetCell);
+                            Object.assign(targetCell, sourceData);
+                            recordEdit(targetX, targetY, oldData, targetCell);
+                            updateMinimapPixel(targetX, targetY, targetCell);
+                        }
+                    }
+                }
+            }
+            document.getElementById("selectionInfo").innerText = `Pasted at ${hoverX}, ${hoverY}.`;
+        }
+
         if (e.ctrlKey && e.key === 'z') {
             e.preventDefault();
             const edit = undoStack.pop();
@@ -335,8 +400,44 @@ document.addEventListener("DOMContentLoaded", () => {
     // Map Cell Editing Interaction
     renderer.app.view.addEventListener('contextmenu', e => e.preventDefault()); // prevent right click menu
 
+    // Handle map drag selection
+    renderer.onMapDrag = (worldX, worldY) => {
+        if (currentToolMode === "select" && isSelecting) {
+            const dragX = Math.floor(worldX / renderer.CELL_WIDTH);
+            const dragY = Math.floor(worldY / renderer.CELL_HEIGHT);
+
+            const startX = Math.min(selectStartX, dragX);
+            const startY = Math.min(selectStartY, dragY);
+            const w = Math.abs(dragX - selectStartX) + 1;
+            const h = Math.abs(dragY - selectStartY) + 1;
+
+            renderer.selectionBounds = { x: startX, y: startY, w: w, h: h };
+        }
+    };
+
+    // Stop selection
+    window.addEventListener("mouseup", () => {
+        if (currentToolMode === "select" && isSelecting) {
+            isSelecting = false;
+            if (renderer.selectionBounds) {
+                document.getElementById("selectionInfo").innerText = `Selected ${renderer.selectionBounds.w}x${renderer.selectionBounds.h}. Press Ctrl+C to copy.`;
+            }
+        }
+    });
+
     // Bind interaction from Renderer to Controller
     renderer.onCellClicked = (cellX, cellY, isRightClick) => {
+        if (currentToolMode === "select") {
+            if (!isRightClick) {
+                isSelecting = true;
+                selectStartX = cellX;
+                selectStartY = cellY;
+                renderer.selectionBounds = { x: cellX, y: cellY, w: 1, h: 1 };
+                document.getElementById("selectionInfo").innerText = "Dragging selection...";
+            }
+            return;
+        }
+
         if (!renderer.map) return;
         const cell = renderer.map.getCell(cellX, cellY);
         if (!cell) return;
@@ -365,7 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             // Execute real auto-tiling if enabled on background
                             if (autoTilingEnabled && activePaintLayer === "back") {
-                                autoTiler.applyAutoTile(targetX, targetY, selectedLibIndex, selectedImageIndex);
+                                autoTiler.applyAutoTile(targetX, targetY, selectedLibIndex, selectedImageIndex, isMir3AutoTile);
 
                                 // Since autoTiler modifies surrounding cells, we need to refresh minimap for the range
                                 const r = 4;

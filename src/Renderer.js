@@ -61,9 +61,15 @@ class Renderer {
         this.hoverBrushGrid.visible = false;
         this.stage.addChild(this.hoverBrushGrid);
 
+        // Setup Selection Grid
+        this.selectionGraphics = new PIXI.Graphics();
+        this.stage.addChild(this.selectionGraphics);
+
         this.hoverWorldX = 0;
         this.hoverWorldY = 0;
         this.brushSize = 1;
+
+        this.selectionBounds = null; // { x, y, w, h }
     }
 
     getSprite() {
@@ -124,6 +130,11 @@ class Renderer {
                 // Update hover preview coordinates
                 this.hoverWorldX = (e.clientX / this.camera.zoom) + this.camera.x;
                 this.hoverWorldY = (e.clientY / this.camera.zoom) + this.camera.y;
+
+                // Trigger callback for selection drag
+                if (this.onMapDrag) {
+                    this.onMapDrag(this.hoverWorldX, this.hoverWorldY);
+                }
             }
         });
 
@@ -212,6 +223,21 @@ class Renderer {
         // Ensure hover preview stays on top
         this.stage.addChild(this.hoverPreviewSprite);
         this.stage.addChild(this.hoverBrushGrid);
+
+        // Ensure selection stays on top
+        this.stage.addChild(this.selectionGraphics);
+        this.selectionGraphics.clear();
+        if (this.selectionBounds) {
+            this.selectionGraphics.lineStyle(2, 0x00FFFF, 1);
+            this.selectionGraphics.beginFill(0x00FFFF, 0.2);
+            this.selectionGraphics.drawRect(
+                this.selectionBounds.x * this.CELL_WIDTH,
+                this.selectionBounds.y * this.CELL_HEIGHT,
+                this.selectionBounds.w * this.CELL_WIDTH,
+                this.selectionBounds.h * this.CELL_HEIGHT
+            );
+            this.selectionGraphics.endFill();
+        }
 
         // Frustum culling: calculate visible grid cells
         const viewX = this.camera.x;
