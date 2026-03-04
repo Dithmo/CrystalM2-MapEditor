@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Map Editor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+            background-color: #222;
+            color: #eee;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        #pixi-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        h3 { margin: 0 0 5px 0; font-size: 14px; color: #aaa; }
+        label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        input[type="file"] { font-size: 12px; }
+        button { background: #444; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #555; }
+        #status { font-size: 12px; color: #ffeb3b; margin-top: 5px; word-wrap: break-word; max-width: 250px; }
+    </style>
+    <!-- Include pako for gzip decompression -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <!-- Include PixiJS (v7) for WebGL rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+</head>
+<body>
+    <div id="ui">
+        <div class="control-group">
+            <h3>Files</h3>
+            <label>Load Map (.map) <input type="file" id="fileMap" accept=".map" /></label>
+            <label>Load Libs (.lib) <input type="file" id="fileLibs" accept=".lib" multiple /></label>
+        </div>
+        <div class="control-group">
+            <h3>Layers</h3>
+            <label><input type="checkbox" id="chkBack" checked> Background</label>
+            <label><input type="checkbox" id="chkMidd" checked> Middle</label>
+            <label><input type="checkbox" id="chkFront" checked> Foreground</label>
+            <label><input type="checkbox" id="chkGrid"> Grid</label>
+        </div>
+        <div id="status">Ready</div>
+    </div>
+
+    <div id="pixi-container"></div>
+
+    <script src="src/MLibrary.js"></script>
+    <script src="src/MapReader.js"></script>
+    <script src="src/Renderer.js"></script>
+    <script src="src/main.js"></script>
+</body>
+</html>
