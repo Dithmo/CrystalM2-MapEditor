@@ -46,6 +46,65 @@
         button { background: #444; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
         button:hover { background: #555; }
         #status { font-size: 12px; color: #ffeb3b; margin-top: 5px; word-wrap: break-word; max-width: 250px; }
+
+        /* Tool panels */
+        #tools, #properties {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        #tools {
+            top: 10px;
+            right: 10px;
+            width: 300px;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        #properties {
+            bottom: 10px;
+            right: 10px;
+            width: 300px;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+
+        .palette-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .palette-item {
+            width: 48px;
+            height: 32px;
+            background: #333;
+            border: 1px solid #555;
+            cursor: pointer;
+            position: relative;
+        }
+        .palette-item.selected {
+            border-color: #ffeb3b;
+            box-shadow: 0 0 5px #ffeb3b;
+        }
+        .palette-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+            margin: auto;
+        }
+
+        select { background: #333; color: white; border: 1px solid #555; padding: 5px; border-radius: 4px; }
+        .flex-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .flex-row input[type="number"] { width: 50px; background: #333; color: white; border: 1px solid #555; padding: 2px; }
     </style>
     <!-- Include pako for gzip decompression -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
@@ -67,6 +126,38 @@
             <label><input type="checkbox" id="chkGrid"> Grid</label>
         </div>
         <div id="status">Ready</div>
+        <button id="btnSaveMap" style="margin-top: 10px;">Export Map</button>
+    </div>
+
+    <!-- Tools Panel -->
+    <div id="tools">
+        <h3>Paint Palette</h3>
+        <label>Active Layer:
+            <select id="selActiveLayer">
+                <option value="back">Background</option>
+                <option value="middle">Middle</option>
+                <option value="front">Foreground</option>
+            </select>
+        </label>
+        <label>Library:
+            <select id="selLib">
+                <option value="-1">-- None --</option>
+            </select>
+        </label>
+        <button id="btnLoadPalette">Load Palette Images</button>
+        <div id="palette" class="palette-container"></div>
+    </div>
+
+    <!-- Properties Panel -->
+    <div id="properties">
+        <h3>Cell Properties</h3>
+        <div id="cellPropInfo" style="font-size: 12px; margin-bottom: 5px;">Select a cell...</div>
+        <div class="flex-row"><label>Door Index</label><input type="number" id="propDoorIndex" min="0" max="255"></div>
+        <div class="flex-row"><label>Door Offset</label><input type="number" id="propDoorOffset" min="0" max="255"></div>
+        <div class="flex-row"><label>Light</label><input type="number" id="propLight" min="0" max="255"></div>
+        <div class="flex-row"><label>Front Anim Frame</label><input type="number" id="propFrontAnimFrame" min="0" max="255"></div>
+        <div class="flex-row"><label>Front Anim Tick</label><input type="number" id="propFrontAnimTick" min="0" max="255"></div>
+        <button id="btnApplyProps">Apply to Selection</button>
     </div>
 
     <div id="pixi-container"></div>

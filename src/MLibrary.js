@@ -51,10 +51,25 @@ class MLibrary {
     async getImage(index) {
         if (!this.initialized) await this.loadPromise;
         if (index < 0 || index >= this.count) return null;
-        if (this.images[index]) return this.images[index]; // Return cached
+        if (this.images[index]) {
+             // Return cached or await if currently loading
+             return this.images[index] instanceof Promise ? await this.images[index] : this.images[index];
+        }
 
         const offset = this.indexList[index];
-        if (offset === 0) return null; // Empty image
+        if (offset === 0) {
+            this.images[index] = { empty: true };
+            return null; // Empty image
+        }
+
+        // Store promise to prevent duplicate loading requests
+        this.images[index] = this._loadImage(index, offset);
+        const result = await this.images[index];
+        this.images[index] = result;
+        return result;
+    }
+
+    async _loadImage(index, offset) {
 
         try {
             const mImage = this.parseImage(offset);
@@ -89,7 +104,17 @@ class MLibrary {
                 alphaMode: PIXI.ALPHA_MODES.NPM // No Premultiplied Alpha
             });
 
+            // Useful for HTML UI Palette representation without rendering in WebGL context
+            const canvas = document.createElement("canvas");
+            canvas.width = mImage.width;
+            canvas.height = mImage.height;
+            const ctx = canvas.getContext("2d");
+            const imgData = new ImageData(new Uint8ClampedArray(rgba), mImage.width, mImage.height);
+            ctx.putImageData(imgData, 0, 0);
+            const base64Url = canvas.toDataURL("image/png");
+
             const result = {
+                base64Url: base64Url,
                 texture: texture,
                 x: mImage.x,
                 y: mImage.y,

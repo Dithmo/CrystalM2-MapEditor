@@ -117,4 +117,59 @@ class MapReader {
         if (x < 0 || y < 0 || x >= this.width || y >= this.height) return null;
         return this.cells[x * this.height + y];
     }
+
+    // Exports the map back to the Type 100 format (C# format) which is easy to serialize
+    save() {
+        if (!this.width || !this.height) return null;
+
+        // Calculate required buffer size
+        // Header: 2 bytes magic + 2 bytes version (0) + 2 bytes width + 2 bytes height = 8 bytes
+        // Each cell in Type 100 is: 2+4+2+2+2+2+1+1+1+1+1+1+2+2+1+1 = 26 bytes
+        const numCells = this.width * this.height;
+        const totalSize = 8 + (numCells * 26);
+        const buffer = new ArrayBuffer(totalSize);
+        const dv = new DataView(buffer);
+        const bytes = new Uint8Array(buffer);
+
+        // Write header
+        bytes[0] = 1; // Magic/Version byte 1
+        bytes[1] = 0; // Magic/Version byte 0
+        bytes[2] = 0x43; // C
+        bytes[3] = 0x23; // # (Though we write to 0 and 1 here, we checked 2 and 3 above - lets mimic C#)
+
+        // Wait, C# code for Type 100 says:
+        // offset = 4;
+        // if ((Bytes[0]!= 1) || (Bytes[1] != 0)) return;
+        // So Bytes[0]=1, Bytes[1]=0. And custom magic is at 2 and 3.
+
+        dv.setInt16(4, this.width, true);
+        dv.setInt16(6, this.height, true);
+
+        let offset = 8;
+
+        for (let x = 0; x < this.width; x++) {
+            for (let y = 0; y < this.height; y++) {
+                const cell = this.cells[x * this.height + y] || {};
+
+                dv.setInt16(offset, cell.backIndex || 0, true); offset += 2;
+                dv.setUint32(offset, cell.backImage || 0, true); offset += 4;
+                dv.setInt16(offset, cell.middleIndex || 0, true); offset += 2;
+                dv.setUint16(offset, cell.middleImage || 0, true); offset += 2;
+                dv.setInt16(offset, cell.frontIndex || 0, true); offset += 2;
+                dv.setUint16(offset, cell.frontImage || 0, true); offset += 2;
+                dv.setUint8(offset++, cell.doorIndex || 0);
+                dv.setUint8(offset++, cell.doorOffset || 0);
+                dv.setUint8(offset++, cell.frontAnimationFrame || 0);
+                dv.setUint8(offset++, cell.frontAnimationTick || 0);
+                dv.setUint8(offset++, cell.middleAnimationFrame || 0);
+                dv.setUint8(offset++, cell.middleAnimationTick || 0);
+                dv.setInt16(offset, cell.tileAnimationImage || 0, true); offset += 2;
+                dv.setInt16(offset, cell.tileAnimationOffset || 0, true); offset += 2;
+                dv.setUint8(offset++, cell.tileAnimationFrames || 0);
+                dv.setUint8(offset++, cell.light || 0);
+            }
+        }
+
+        return buffer;
+    }
 }

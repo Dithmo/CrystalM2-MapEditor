@@ -61,15 +61,29 @@ class Renderer {
 
     setupInteraction() {
         this.app.view.addEventListener('mousedown', (e) => {
-            this.isDragging = true;
-            this.dragStart.x = e.clientX;
-            this.dragStart.y = e.clientY;
-            this.cameraStart.x = this.camera.x;
-            this.cameraStart.y = this.camera.y;
+            // Right click or Middle click for drag panning
+            if (e.button === 2 || e.button === 1) {
+                this.isDragging = true;
+                this.dragStart.x = e.clientX;
+                this.dragStart.y = e.clientY;
+                this.cameraStart.x = this.camera.x;
+                this.cameraStart.y = this.camera.y;
+            } else if (e.button === 0) {
+                // Left click for painting
+                this.handleMapClick(e.clientX, e.clientY, false);
+            }
         });
 
-        window.addEventListener('mouseup', () => {
-            this.isDragging = false;
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 2 || e.button === 1) {
+                this.isDragging = false;
+            }
+        });
+
+        // Disable default context menu
+        this.app.view.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            this.handleMapClick(e.clientX, e.clientY, true); // right click edit properties
         });
 
         window.addEventListener('mousemove', (e) => {
@@ -98,6 +112,21 @@ class Renderer {
             this.camera.x = (mouseX / oldZoom + this.camera.x) - (mouseX / this.camera.zoom);
             this.camera.y = (mouseY / oldZoom + this.camera.y) - (mouseY / this.camera.zoom);
         });
+    }
+
+    handleMapClick(clientX, clientY, isRightClick) {
+        if (!this.map) return;
+
+        // Convert screen coordinates to world coordinates
+        const worldX = (clientX / this.camera.zoom) + this.camera.x;
+        const worldY = (clientY / this.camera.zoom) + this.camera.y;
+
+        const cellX = Math.floor(worldX / this.CELL_WIDTH);
+        const cellY = Math.floor(worldY / this.CELL_HEIGHT);
+
+        if (this.onCellClicked) {
+            this.onCellClicked(cellX, cellY, isRightClick);
+        }
     }
 
     loadMap(map) {
@@ -155,37 +184,45 @@ class Renderer {
         const endX = Math.min(this.map.width, Math.ceil((viewX + viewW) / this.CELL_WIDTH) + 20);
         const endY = Math.min(this.map.height, Math.ceil((viewY + viewH) / this.CELL_HEIGHT) + 20);
 
-        for (let x = startX; x < endX; x++) {
+        // Render Background layer first
+        if (this.layerConfig.back) {
             for (let y = startY; y < endY; y++) {
+                for (let x = startX; x < endX; x++) {
+                    const cell = this.map.getCell(x, y);
+                    if (!cell) continue;
+
+                    if (cell.backImage && (cell.backImage & 0x7FFF) > 0) {
+                        const imgIndex = (cell.backImage & 0x7FFF) - 1;
+                        const mImage = this.getTexture(cell.backIndex || 0, imgIndex);
+
+                        if (mImage && mImage.texture) {
+                            const sprite = this.getSprite();
+                            sprite.texture = mImage.texture;
+                            sprite.x = x * this.CELL_WIDTH;
+                            sprite.y = y * this.CELL_HEIGHT;
+
+                            if ((cell.backImage & 0x20000000) !== 0) {
+                                sprite.blendMode = PIXI.BLEND_MODES.ADD;
+                                sprite.alpha = 0.5;
+                            } else {
+                                sprite.blendMode = PIXI.BLEND_MODES.NORMAL;
+                                sprite.alpha = 1.0;
+                            }
+                            this.activeSprites.push(sprite);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Render Middle and Front layers, properly Z-sorted by Y axis (Isometric sort style)
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
                 const cell = this.map.getCell(x, y);
                 if (!cell) continue;
 
                 const drawX = x * this.CELL_WIDTH;
                 const drawY = y * this.CELL_HEIGHT;
-
-                // Background
-                if (this.layerConfig.back && cell.backImage && (cell.backImage & 0x7FFF) > 0) {
-                    const imgIndex = (cell.backImage & 0x7FFF) - 1;
-                    const mImage = this.getTexture(cell.backIndex || 0, imgIndex);
-
-                    if (mImage && mImage.texture) {
-                        const sprite = this.getSprite();
-                        sprite.texture = mImage.texture;
-                        sprite.x = drawX;
-                        sprite.y = drawY;
-
-                        // blend flags
-                        if ((cell.backImage & 0x20000000) !== 0) {
-                            sprite.blendMode = PIXI.BLEND_MODES.ADD; // Approximation
-                            sprite.alpha = 0.5;
-                        } else {
-                            sprite.blendMode = PIXI.BLEND_MODES.NORMAL;
-                            sprite.alpha = 1.0;
-                        }
-
-                        this.activeSprites.push(sprite);
-                    }
-                }
 
                 // Middle
                 if (this.layerConfig.middle && cell.middleImage && cell.middleImage > 0) {
@@ -206,8 +243,6 @@ class Renderer {
                 // Front (Objects)
                 if (this.layerConfig.front && cell.frontImage && cell.frontImage > 0) {
                     const imgIndex = cell.frontImage - 1;
-                    // Note: frontIndex can sometimes be negative or refer to different libs based on map version.
-                    // For Type 0, frontIndex usually refers to Objects library.
                     const libIndex = cell.frontIndex > 0 ? cell.frontIndex : 2;
 
                     const mImage = this.getTexture(libIndex, imgIndex);
@@ -215,7 +250,6 @@ class Renderer {
                     if (mImage && mImage.texture) {
                         const sprite = this.getSprite();
                         sprite.texture = mImage.texture;
-                        // C# aligns bottom center usually, adjusting x and y from the lib offset
                         sprite.x = drawX + mImage.x;
                         sprite.y = drawY + mImage.y;
                         sprite.blendMode = PIXI.BLEND_MODES.NORMAL;
