@@ -35,6 +35,24 @@ class MapReader {
         console.log(`Parsed Map: ${this.width}x${this.height} (${this.cells.length} cells)`);
     }
 
+    // Returns a Set of all unique library integer indexes used across all layers in this map
+    getRequiredLibraryIndexes() {
+        const required = new Set();
+        for (let i = 0; i < this.cells.length; i++) {
+            const cell = this.cells[i];
+            if (!cell) continue;
+
+            // Only add the index if the corresponding image value is > 0
+            if (cell.backImage && (cell.backImage & 0x7FFF) > 0) required.add(cell.backIndex || 0);
+            if (cell.middleImage && cell.middleImage > 0) required.add(cell.middleIndex || 1);
+            if (cell.frontImage && cell.frontImage > 0) {
+                // Type 0 default frontIndex is often 2 if not explicitly set
+                required.add(cell.frontIndex > 0 ? cell.frontIndex : 2);
+            }
+        }
+        return required;
+    }
+
     // Default Type 0 implementation
     loadMapType0(dv, bytes) {
         let offset = 0;

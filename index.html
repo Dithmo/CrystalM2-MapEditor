@@ -168,7 +168,9 @@
         <div class="panel">
             <h3>Files</h3>
             <label>Load Map (.map) <input type="file" id="fileMap" accept=".map" /></label>
-            <label>Load Libs (.lib) <input type="file" id="fileLibs" accept=".lib" multiple /></label>
+            <label title="Select your entire Data folder containing all .lib files. The engine will smartly load only the required ones.">
+                Data Folder (Libs) <input type="file" id="fileLibs" webkitdirectory directory multiple />
+            </label>
             <button id="btnSaveMap" style="margin-top: 5px;">Export Map</button>
         </div>
 

@@ -297,37 +297,73 @@ document.addEventListener("DOMContentLoaded", () => {
         renderer.brushSize = val;
     });
 
-    // Lib loader
-    document.getElementById("fileLibs").addEventListener("change", async (e) => {
-        if (!e.target.files.length) return;
+    // Helper to calculate the C# index based on the filename string
+    function getLibraryIndexFromName(filename) {
+        const name = filename.split('.')[0].toLowerCase();
 
-        updateStatus(`Loading ${e.target.files.length} library files...`);
+        // Wemade Mir2
+        if (name === "tiles") return 0;
+        if (name === "smtiles") return 1;
+        if (name === "objects") return 2;
+        if (name === "objects_32bit") return 90;
+
+        if (name.startsWith("objects")) {
+            const num = parseInt(name.replace("objects", ""));
+            // Objects2.lib -> Index 3, Objects3.lib -> Index 4...
+            if (!isNaN(num)) return num + 1;
+        }
+
+        // Shanda Mir2
+        if (name.startsWith("tiles") && name !== "tiles") {
+            const num = parseInt(name.replace("tiles", ""));
+            // Tiles2.lib -> 101, Tiles3.lib -> 102
+            if (!isNaN(num)) return 100 + num - 1;
+        }
+        if (name.startsWith("smtiles") && name !== "smtiles") {
+            const num = parseInt(name.replace("smtiles", ""));
+            if (!isNaN(num)) return 110 + num - 1;
+        }
+
+        // Return a custom fallback index if we can't figure it out
+        return -1;
+    }
+
+    // Smart Lib/Folder loader
+    document.getElementById("fileLibs").addEventListener("change", async (e) => {
+        const files = e.target.files;
+        if (!files.length) return;
+
+        if (!renderer.map) {
+            updateStatus("Please load a .map file FIRST so the engine knows which libraries to extract.");
+            return;
+        }
+
+        updateStatus(`Scanning folder for required libraries...`);
+
+        // Ask the MapReader which integer library indexes are actually utilized in this map
+        const requiredIndexes = renderer.map.getRequiredLibraryIndexes();
 
         let loadedCount = 0;
-        for (const file of e.target.files) {
+        let fallbackCounter = 200;
+
+        for (const file of files) {
+            if (!file.name.toLowerCase().endsWith(".lib")) continue;
+
+            let index = getLibraryIndexFromName(file.name);
+
+            // If the map doesn't strictly need this index, completely skip reading the file!
+            if (index !== -1 && !requiredIndexes.has(index)) {
+                continue;
+            }
+
+            if (index === -1) {
+                index = fallbackCounter++; // Assign custom index if unmapped
+            }
+
             try {
+                // Now we only actually read and instantiate the library if it's required
                 const lib = new MLibrary(file);
                 await lib.loadPromise;
-
-                // Map the library to its specific index based on name
-                let index = -1;
-                const name = lib.name.toLowerCase();
-
-                if (name === "tiles") index = 0;
-                else if (name === "smtiles") index = 1;
-                else if (name === "objects") index = 2;
-                else if (name.startsWith("objects")) {
-                    const num = parseInt(name.replace("objects", ""));
-                    if (!isNaN(num)) index = num; // Adjust based on index list logic in C#
-                } else if (name.startsWith("tiles")) {
-                    const num = parseInt(name.replace("tiles", ""));
-                    if (!isNaN(num)) index = 100 + num - 1;
-                }
-
-                // Fallback, store by index starting from 200 if unknown
-                if (index === -1) {
-                    index = 200 + loadedCount;
-                }
 
                 renderer.addLib(index, lib);
                 loadedCount++;
@@ -337,12 +373,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 option.innerText = `[${index}] ${lib.name}`;
                 selLib.appendChild(option);
 
-                updateStatus(`Loaded lib: ${file.name} (Index ${index})`);
+                updateStatus(`Loaded required lib: ${file.name} (Index ${index})`);
             } catch (err) {
                 console.error("Lib load failed", file.name, err);
             }
         }
-        updateStatus(`Finished loading ${loadedCount} libraries.`);
+
+        updateStatus(`Smart Load Complete. Extracted ${loadedCount} required libraries. Discarded the rest.`);
     });
 
     document.getElementById("btnLoadPalette").addEventListener("click", async () => {
