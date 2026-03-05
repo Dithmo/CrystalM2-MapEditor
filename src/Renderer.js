@@ -267,14 +267,14 @@ class Renderer {
 
                             // Try loading animated texture
                             const animImageIndex = (cell.tileAnimationImage & 0x7FFF) - 1 + currentFrameOffset;
-                            const animMImage = this.getTexture(cell.backIndex || 0, animImageIndex);
+                            const animMImage = this.getTexture(cell.backIndex !== undefined ? cell.backIndex : 0, animImageIndex);
 
                             if (animMImage && animMImage.texture) {
                                 imgIndex = animImageIndex;
                             }
                         }
 
-                        const mImage = this.getTexture(cell.backIndex || 0, imgIndex);
+                        const mImage = this.getTexture(cell.backIndex !== undefined ? cell.backIndex : 0, imgIndex);
 
                         if (mImage && mImage.texture) {
                             const sprite = this.getSprite();
@@ -316,7 +316,7 @@ class Renderer {
                         imgIndex = imgIndex + currentFrameOffset;
                     }
 
-                    const mImage = this.getTexture(cell.middleIndex || 1, imgIndex);
+                    const mImage = this.getTexture(cell.middleIndex !== undefined ? cell.middleIndex : 1, imgIndex);
 
                     if (mImage && mImage.texture) {
                         const sprite = this.getSprite();
@@ -332,7 +332,7 @@ class Renderer {
                 // Front (Objects)
                 if (this.layerConfig.front && cell.frontImage && cell.frontImage > 0) {
                     let imgIndex = cell.frontImage - 1;
-                    const libIndex = cell.frontIndex > 0 ? cell.frontIndex : 2;
+                    const libIndex = (cell.frontIndex !== undefined && cell.frontIndex > 0) ? cell.frontIndex : 2;
 
                     // Handle Front Animation (Torches, Fountains, etc)
                     if (cell.frontAnimationFrame && cell.frontAnimationFrame > 0) {

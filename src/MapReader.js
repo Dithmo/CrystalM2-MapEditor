@@ -43,11 +43,11 @@ class MapReader {
             if (!cell) continue;
 
             // Only add the index if the corresponding image value is > 0
-            if (cell.backImage && (cell.backImage & 0x7FFF) > 0) required.add(cell.backIndex || 0);
-            if (cell.middleImage && cell.middleImage > 0) required.add(cell.middleIndex || 1);
+            if (cell.backImage && (cell.backImage & 0x7FFF) > 0) required.add(cell.backIndex !== undefined ? cell.backIndex : 0);
+            if (cell.middleImage && cell.middleImage > 0) required.add(cell.middleIndex !== undefined ? cell.middleIndex : 1);
             if (cell.frontImage && cell.frontImage > 0) {
                 // Type 0 default frontIndex is often 2 if not explicitly set
-                required.add(cell.frontIndex > 0 ? cell.frontIndex : 2);
+                required.add((cell.frontIndex !== undefined && cell.frontIndex > 0) ? cell.frontIndex : 2);
             }
         }
         return required;
