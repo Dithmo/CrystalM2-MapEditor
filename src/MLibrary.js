@@ -1,7 +1,8 @@
 class MLibrary {
     constructor(file) {
-        this.file = file; // The browser File object
-        this.name = file.name.split('.')[0]; // Used as key for map linking
+        // file arg can be either a browser File object OR an object containing { name, buffer }
+        this.file = file;
+        this.name = file.name.split('.')[0];
 
         this.version = 0;
         this.count = 0;
@@ -14,7 +15,8 @@ class MLibrary {
 
     async initialize() {
         // Read just the first few bytes to get version and count, and the index list
-        const buffer = await this.file.arrayBuffer();
+        const buffer = this.file.buffer || await this.file.arrayBuffer();
+        this._buffer = buffer; // Cache it so getImage doesn't need to re-fetch/re-read
         const dataView = new DataView(buffer);
         let offset = 0;
 

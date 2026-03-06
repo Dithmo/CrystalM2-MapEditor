@@ -6,3 +6,4 @@
 /.vs
 /Map Editor/bin
 /Map Editor/obj
+node_modules/

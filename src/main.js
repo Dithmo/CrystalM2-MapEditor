@@ -153,6 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
             renderer.loadMap(mapReader);
             generateMinimap(mapReader);
             updateStatus(`Map loaded: ${mapReader.width}x${mapReader.height}`);
+            loadLibrariesFromDataFolder();
         } catch (err) {
             updateStatus(`Failed to load map: ${err.message}`);
         }
@@ -328,59 +329,75 @@ document.addEventListener("DOMContentLoaded", () => {
         return -1;
     }
 
-    // Smart Lib/Folder loader
-    document.getElementById("fileLibs").addEventListener("change", async (e) => {
-        const files = e.target.files;
-        if (!files.length) return;
 
-        if (!renderer.map) {
-            updateStatus("Please load a .map file FIRST so the engine knows which libraries to extract.");
-            return;
-        }
+    // Helper to generate the expected .lib filename string based on the C# integer index
+    function getFilenameFromLibraryIndex(index) {
+        if (index === 0) return "Tiles.lib";
+        if (index === 1) return "SmTiles.lib";
+        if (index === 2) return "Objects.lib";
+        if (index === 90) return "Objects_32bit.lib";
 
-        updateStatus(`Scanning folder for required libraries...`);
+        // Wemade Mir2 Objects
+        if (index > 2 && index < 90) return `Objects${index - 1}.lib`;
 
-        // Ask the MapReader which integer library indexes are actually utilized in this map
+        // Shanda Mir2 Tiles
+        if (index >= 100 && index < 110) return `Tiles${index - 100 + 1}.lib`;
+
+        // Shanda Mir2 SmTiles
+        if (index >= 110 && index < 120) return `SmTiles${index - 110 + 1}.lib`;
+
+        // If index is something else, fallback to default guessing pattern
+        return `Objects${index - 1}.lib`;
+    }
+
+    // Fetch Loader from /data/
+    async function loadLibrariesFromDataFolder() {
+        if (!renderer.map) return;
+        updateStatus(`Scanning map for required libraries...`);
         const requiredIndexes = renderer.map.getRequiredLibraryIndexes();
-
         let loadedCount = 0;
-        let fallbackCounter = 200;
+        let failedCount = 0;
 
-        for (const file of files) {
-            if (!file.name.toLowerCase().endsWith(".lib")) continue;
+        const loadPromises = [];
 
-            let index = getLibraryIndexFromName(file.name);
+        for (const index of requiredIndexes) {
+            const filename = getFilenameFromLibraryIndex(index);
 
-            // If the map doesn't strictly need this index, completely skip reading the file!
-            if (index !== -1 && !requiredIndexes.has(index)) {
-                continue;
-            }
+            loadPromises.push(
+                fetch(`data/${filename}`)
+                .then(async (response) => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const fileObj = { name: filename, buffer: arrayBuffer };
+                    const lib = new MLibrary(fileObj);
+                    await lib.loadPromise;
 
-            if (index === -1) {
-                index = fallbackCounter++; // Assign custom index if unmapped
-            }
+                    renderer.addLib(index, lib);
+                    loadedCount++;
 
-            try {
-                // Now we only actually read and instantiate the library if it's required
-                const lib = new MLibrary(file);
-                await lib.loadPromise;
-
-                renderer.addLib(index, lib);
-                loadedCount++;
-
-                const option = document.createElement("option");
-                option.value = index;
-                option.innerText = `[${index}] ${lib.name}`;
-                selLib.appendChild(option);
-
-                updateStatus(`Loaded required lib: ${file.name} (Index ${index})`);
-            } catch (err) {
-                console.error("Lib load failed", file.name, err);
-            }
+                    const option = document.createElement("option");
+                    option.value = index;
+                    option.innerText = `[${index}] ${lib.name}`;
+                    selLib.appendChild(option);
+                })
+                .catch(err => {
+                    console.warn(`Could not load required library: data/${filename} (Index ${index}) - ${err.message}`);
+                    failedCount++;
+                })
+            );
         }
 
-        updateStatus(`Smart Load Complete. Extracted ${loadedCount} required libraries. Discarded the rest.`);
-    });
+        updateStatus(`Fetching required libraries from /data/...`);
+        await Promise.all(loadPromises);
+
+        if (failedCount > 0) {
+            updateStatus(`Load Complete. Extracted ${loadedCount} libraries. Failed to find ${failedCount} files in /data/.`);
+        } else {
+            updateStatus(`Load Complete. Successfully loaded all ${loadedCount} required libraries from /data/.`);
+        }
+    }
+    // Smart Lib/Folder loader
+    /* Removed local file upload in favor of direct fetch */
 
     document.getElementById("btnLoadPalette").addEventListener("click", async () => {
         const libIndex = parseInt(selLib.value);

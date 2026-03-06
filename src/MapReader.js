@@ -8,7 +8,7 @@ class MapReader {
     }
 
     async parse() {
-        const buffer = await this.file.arrayBuffer();
+        const buffer = this.file.buffer || await this.file.arrayBuffer();
         const dv = new DataView(buffer);
         const bytes = new Uint8Array(buffer);
 
